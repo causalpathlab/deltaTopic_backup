@@ -266,8 +266,8 @@ class MultiLatentDecoder(nn.Module):
 
         return px_scale, px_r, px_rate, px_dropout, path_ind, path_s
 
-class DeltaDecoder(nn.Module):
-    """Break down the differences between spliced and unplisced with a topic-by-gene matrix """
+class DeltaETMDecoder(nn.Module):
+    """Model the differences between spliced and unplisced with a topic-by-gene matrix """
     def __init__(
         self,
         n_input: int,
@@ -280,10 +280,10 @@ class DeltaDecoder(nn.Module):
         dropout_rate: float = 0.2,
     ):
         super().__init__()
-
+        
         n_out = n_hidden_conditioned if n_layers_shared else n_hidden_shared
         
-
+        self.to_topic_theta = nn.Logsoftmax(dim=-1)
         
         
         if n_layers_conditioned:
