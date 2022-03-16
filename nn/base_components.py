@@ -267,82 +267,44 @@ class MultiLatentDecoder(nn.Module):
         return px_scale, px_r, px_rate, px_dropout, path_ind, path_s
 
 class DeltaETMDecoder(nn.Module):
-    """Model the differences between spliced and unplisced with a topic-by-gene matrix """
+    """Model the differences between spliced and unplisced with a topic-by-gene matrix 
+        and a topic-by-cell matrix. 
+        - The """
     def __init__(
         self,
         n_input: int,
         n_output: int,
-        n_hidden_conditioned: int = 32,
-        n_hidden_shared: int = 128,
-        n_layers_conditioned: int = 1,
-        n_layers_shared: int = 1,
-        n_cat_list: Iterable[int] = None,
-        dropout_rate: float = 0.2,
     ):
         super().__init__()
-        
-        n_out = n_hidden_conditioned if n_layers_shared else n_hidden_shared
-        
-        self.to_topic_theta = nn.Logsoftmax(dim=-1)
-        
-        
-        if n_layers_conditioned:
-            self.px_decoder_conditioned = FCLayers(
-                n_in=n_input,
-                n_out=n_out,
-                n_cat_list=n_cat_list,
-                n_layers=n_layers_conditioned,
-                n_hidden=n_hidden_conditioned,
-                dropout_rate=dropout_rate,
-                use_batch_norm=True,
-            )
-            n_in = n_out
-        else:
-            self.px_decoder_conditioned = None
-            n_in = n_input
 
-        if n_layers_shared:
-            self.px_decoder_final = FCLayers(
-                n_in=n_in,
-                n_out=n_hidden_shared,
-                n_cat_list=[],
-                n_layers=n_layers_shared,
-                n_hidden=n_hidden_shared,
-                dropout_rate=dropout_rate,
-                use_batch_norm=True,
-            )
-            n_in = n_hidden_shared
-        else:
-            self.px_decoder_final = None
-
-        self.px_scale_decoder = nn.Sequential(
-            nn.Linear(n_in, n_output), nn.Softmax(dim=-1)
-        )
-        self.px_r_decoder = nn.Linear(n_in, n_output)
-        self.px_dropout_decoder = nn.Linear(n_in, n_output)
-
+        # global parameters 
+        self.rho = nn.Parameter(torch.randn(n_output)) # gene-level fixed effect
+        self.delta= nn.Parameter(torch.randn(n_input,n_output)) # topic-by-gene matrix, random effect
+        # softmax operations
+        self.beta = nn.LogSoftmax(dim=-1)  # to topics loadings on each gene
+		self.hid = nn.LogSoftmax(dim=-1) # to get topic proportions
+        
     def forward(
         self,
         z: torch.Tensor,
-        dataset_id: int,
-        library: torch.Tensor,
-        dispersion: str,
-        *cat_list: int,
+        dataset_id: int, # 0 for splicde count and 1 for unspliced count
     ):
 
-        px = z
-        if self.px_decoder_conditioned:
-            px = self.px_decoder_conditioned(px, *cat_list)
-        if self.px_decoder_final:
-            px = self.px_decoder_final(px, *cat_list)
+        # expand to a topic-by-gene matrix
+        rho_matrix = self.rho.expand([n_topics,-1])
+        
+        # The order matters here, the spliced needs to be passed as adata1
+        if dataset_id == 0: # spliced count 
+            log_beta = self.beta(rho_matrix + self.delta)
+        elif dataset_id == 1: # unplisced count
+            log_beta =  self.beta(rho_matrix + self.delta)
+        else:
+            raise ValueError("DeltaETMDecoder dataset_id should be 0 (spliced) or 1 (unspliced)")
+    
+        hh = self.hid(z)    
 
-        px_scale = self.px_scale_decoder(px)
-        px_dropout = self.px_dropout_decoder(px)
-        px_rate = torch.exp(library) * px_scale
-        px_r = self.px_r_decoder(px) if dispersion == "gene-cell" else None
-
-        return px_scale, px_r, px_rate, px_dropout
-
+		return torch.mm(torch.exp(hh),torch.exp(log_beta)), hh
+        
 class MultiDecoder(nn.Module):
     """This is the multi-decoder in scvi.nn, included here for reference"""
     def __init__(
