@@ -2,7 +2,6 @@
 """base components"""
 import collections
 from typing import Callable, Iterable, List, Optional
-#from scvi.nn import MultiEncoder
 import torch
 from torch import nn as nn
 from torch.distributions import Normal
@@ -19,159 +18,10 @@ def identity(x):
 def reparameterize_gaussian(mu, var):
     return Normal(mu, var.sqrt()).rsample()
 
-class MaskedLatentEncoder(nn.Module):
-    """
-    Masked latnet encoder with single head
-
-    Encodes data of ``n_input`` dimensions into a latent space of ``n_output`` dimensions.
-    
-    Masked encoder Layers: 
-        n_input --> mask --> n_hidden_maksed * n_layers_masked --> concat with z_shared --> 
-    Fully-connected layers: 
-        FCLayers * n_hidden_FC --> mu, signma  --> n_output (z)
-
-    """
-
-    def __init__(
-        self,
-        n_input: int,
-        n_output: int,
-        dim_s: int,
-        mask: torch.Tensor = None,
-        mask_first: bool = True,
-        n_layers_masked: int = 1,
-        n_hidden_masked: int = 128,
-        n_out_masked: int = 128,
-        n_layers_FC: int = 1,
-        n_hidden_FC: int = 128,
-        n_cat_list: Iterable[int] = None,
-        dropout_rate: float = 0.1,
-        inject_covariates: bool = True,
-        use_batch_norm: bool = True,
-        use_layer_norm: bool = False,
-    ):
-        super().__init__()
-        
-        self.masked_encoder = MaskedLinearLayers(
-                    n_in=n_input,
-                    n_out=n_out_masked,
-                    n_cat_list=n_cat_list,
-                    mask=mask,
-                    mask_first=mask_first,
-                    n_layers=n_layers_masked,
-                    n_hidden=n_hidden_masked,
-                    dropout_rate=dropout_rate,
-                    inject_covariates=inject_covariates,
-                    use_batch_norm=use_batch_norm,
-                    use_layer_norm=use_layer_norm,
-                )
-                
-        n_input_FClayer = n_out_masked + dim_s
-        
-        self.FClayers = FCLayers(
-            n_in=n_input_FClayer,
-            n_out=n_output,
-            n_cat_list=n_cat_list,
-            n_layers=n_layers_FC,
-            n_hidden=n_hidden_FC,
-            dropout_rate=dropout_rate,
-        )
-        
-        self.mean_encoder = nn.Linear(n_output, n_output)
-        self.var_encoder = nn.Linear(n_output, n_output)
-
-    def forward(self, x: torch.Tensor, s: torch.Tensor, *cat_list: int):
-        z_ind = self.masked_encoder(x, *cat_list)
-        z_cat = torch.cat([z_ind,s], dim = -1)
-        q = self.FClayers(z_cat, *cat_list)
-        q_m = self.mean_encoder(q)
-        q_v = torch.exp(self.var_encoder(q))
-        latent = reparameterize_gaussian(q_m, q_v)
-        return q_m, q_v, latent
-
-class MultiLatentEncoder(nn.Module):
-    """
-    Maksed latnet encoder with two heads
-    """
-    def __init__(
-        self,
-        n_heads: int,
-        n_input_list: List[int],
-        n_output: int,
-        mask: torch.Tensor = None,
-        mask_first: bool = True,
-        n_hidden: int = 128,
-        n_layers_individual: int = 1,
-        n_layers_shared: int = 2,
-        n_cat_list: Iterable[int] = None,
-        dropout_rate: float = 0.1,
-        deeply_inject_covariates: bool = True,
-        use_batch_norm: bool = True,
-        use_layer_norm: bool = False,
-    ):
-        super().__init__()
-        
-
-        self.encoders = ModuleList(
-            [
-                MaskedLinearLayers(
-                    n_in=n_input_list[i],
-                    n_out=n_hidden,
-                    n_cat_list=n_cat_list,
-                    mask=mask,
-                    mask_first=mask_first,
-                    n_layers=n_layers_individual,
-                    n_hidden=n_hidden,
-                    dropout_rate=dropout_rate,
-                    use_batch_norm=True,
-                )
-                for i in range(n_heads)
-            ]
-        )
-
-        self.encoder_shared = FCLayers(
-            n_in=n_hidden,
-            n_out=n_hidden,
-            n_cat_list=n_cat_list,
-            n_layers=n_layers_shared,
-            n_hidden=n_hidden,
-            dropout_rate=dropout_rate,
-        )
-
-        self.mean_encoder = nn.Linear(n_hidden, n_output)
-        self.var_encoder = nn.Linear(n_hidden, n_output)
-
-        # to encode source-specific mean and var
-        self.mean_encoders = ModuleList(
-            [
-                nn.Linear(n_hidden, n_output)
-                for i in range(n_heads)
-            ]
-        )
-
-        self.var_encoders = ModuleList(
-            [
-                nn.Linear(n_hidden, n_output)
-                for i in range(n_heads)
-            ]
-        )
-
-    def forward(self, x: torch.Tensor, head_id: int, *cat_list: int):
-        q = self.encoders[head_id](x, *cat_list)
-        
-        q_m_ind = self.mean_encoders[head_id](q)
-        q_v_ind = torch.exp(self.var_encoders[head_id](q))
-        latent_ind = reparameterize_gaussian(q_m_ind, q_v_ind)
-        
-        q = self.encoder_shared(q, *cat_list)
-        q_m = self.mean_encoder(q)
-        q_v = torch.exp(self.var_encoder(q))
-        latent = reparameterize_gaussian(q_m, q_v)
-
-        return q_m_ind, q_v_ind, latent_ind, q_m, q_v, latent
-
 class MaskedLinear(nn.Linear):
-    """ same as Linear except has a configurable mask on the weights """
+    """ 
+    same as Linear except has a configurable mask on the weights 
+    """
     
     def __init__(self, in_features, out_features, mask, bias=True):
         super().__init__(in_features, out_features, bias)        
@@ -183,200 +33,6 @@ class MaskedLinear(nn.Linear):
             return F.linear(input, self.weight*self.mask)
         else:
             return F.linear(input, self.weight*self.mask, self.bias)
-
-class MultiLatentDecoder(nn.Module):
-    """ domain specifc decoder and one shared decoder"""
-    def __init__(
-        self,
-        n_heads: int,
-        n_input_list: List[int],
-        n_output: int,
-        mask: torch.Tensor = None, 
-        n_hidden: int = 128, # by default, no hidden layers
-        n_layers: int = 1, # by default, no hidden layers
-        n_cat_list: Iterable[int] = None,
-        dropout_rate: float = 0.2,
-    ):
-        super().__init__()
-        
-        n_path = mask.shape[0]
-
-        self.pathway_decoders = ModuleList(
-            [
-                FCLayers(
-                    n_in=n_input_list[i],
-                    n_out=n_path,
-                    n_cat_list=n_cat_list,
-                    n_layers=n_layers,
-                    n_hidden=n_hidden,
-                    dropout_rate=dropout_rate,
-                    use_batch_norm=True,
-                )
-                for i in range(n_heads)
-            ]
-        )
-
-        self.pathway_decoder_shared = FCLayers(
-            n_in=n_input_list[0],
-            n_out=n_path,
-            n_cat_list=[],
-            n_layers=n_layers,
-            n_hidden=n_hidden,
-            dropout_rate=dropout_rate,
-            use_batch_norm=True,
-        )
-
-        self.masked_decoder = MaskedLinear(n_path, n_output, torch.transpose(mask,0,1))
-
-        n_in = n_output # number of genes
-
-        self.px_scale_decoder = nn.Sequential(
-            nn.Linear(n_in, n_output), nn.Softmax(dim=-1)
-        )
-        self.px_r_decoder = nn.Linear(n_in, n_output)
-        self.px_dropout_decoder = nn.Linear(n_in, n_output)
-
-    def forward(
-        self,
-        z_ind: torch.Tensor,
-        z_s: torch.Tensor,
-        head_id:int,
-        library: torch.Tensor,
-        dispersion: str,
-        *cat_list: int,
-    ):
-
-        # LV --> pathway representation
-        path_ind = self.pathway_decoders[head_id](z_ind, *cat_list)
-        #path_ind = nn.Softmax(dim=-1)(path_ind)
-        path_s = self.pathway_decoder_shared(z_s, *cat_list)
-        #path_s = nn.Softmax(dim=-1)(path_s)
-        #path = 0.5 * (path_ind + path_s) 
-
-        # pathway representation --> gene
-        px_ind = self.masked_decoder(path_ind)
-        px_s = self.masked_decoder(path_s)
-        px = px_ind + px_s
-
-        # get the parameters of the model
-        px_scale = self.px_scale_decoder(px)
-        px_dropout = self.px_dropout_decoder(px)
-        px_rate = torch.exp(library) * px_scale
-        px_r = self.px_r_decoder(px) if dispersion == "gene-cell" else None
-
-        return px_scale, px_r, px_rate, px_dropout, path_ind, path_s
-
-class DeltaETMDecoder(nn.Module):
-    """Model the differences between spliced and unplisced with a topic-by-gene matrix 
-        and a topic-by-cell matrix. 
-        - The """
-    def __init__(
-        self,
-        n_input: int,
-        n_output: int,
-    ):
-        super().__init__()
-
-        # global parameters 
-        self.rho = nn.Parameter(torch.randn(n_output)) # gene-level fixed effect
-        self.delta= nn.Parameter(torch.randn(n_input,n_output)) # topic-by-gene matrix, random effect
-        # softmax operations
-        self.beta = nn.LogSoftmax(dim=-1)  # to topics loadings on each gene
-		self.hid = nn.LogSoftmax(dim=-1) # to get topic proportions
-        
-    def forward(
-        self,
-        z: torch.Tensor,
-        dataset_id: int, # 0 for splicde count and 1 for unspliced count
-    ):
-
-        # expand to a topic-by-gene matrix
-        rho_matrix = self.rho.expand([n_topics,-1])
-        
-        # The order matters here, the spliced needs to be passed as adata1
-        if dataset_id == 0: # spliced count 
-            log_beta = self.beta(rho_matrix + self.delta)
-        elif dataset_id == 1: # unplisced count
-            log_beta =  self.beta(rho_matrix + self.delta)
-        else:
-            raise ValueError("DeltaETMDecoder dataset_id should be 0 (spliced) or 1 (unspliced)")
-    
-        hh = self.hid(z)    
-
-		return torch.mm(torch.exp(hh),torch.exp(log_beta)), hh
-        
-class MultiDecoder(nn.Module):
-    """This is the multi-decoder in scvi.nn, included here for reference"""
-    def __init__(
-        self,
-        n_input: int,
-        n_output: int,
-        n_hidden_conditioned: int = 32,
-        n_hidden_shared: int = 128,
-        n_layers_conditioned: int = 1,
-        n_layers_shared: int = 1,
-        n_cat_list: Iterable[int] = None,
-        dropout_rate: float = 0.2,
-    ):
-        super().__init__()
-
-        n_out = n_hidden_conditioned if n_layers_shared else n_hidden_shared
-        if n_layers_conditioned:
-            self.px_decoder_conditioned = FCLayers(
-                n_in=n_input,
-                n_out=n_out,
-                n_cat_list=n_cat_list,
-                n_layers=n_layers_conditioned,
-                n_hidden=n_hidden_conditioned,
-                dropout_rate=dropout_rate,
-                use_batch_norm=True,
-            )
-            n_in = n_out
-        else:
-            self.px_decoder_conditioned = None
-            n_in = n_input
-
-        if n_layers_shared:
-            self.px_decoder_final = FCLayers(
-                n_in=n_in,
-                n_out=n_hidden_shared,
-                n_cat_list=[],
-                n_layers=n_layers_shared,
-                n_hidden=n_hidden_shared,
-                dropout_rate=dropout_rate,
-                use_batch_norm=True,
-            )
-            n_in = n_hidden_shared
-        else:
-            self.px_decoder_final = None
-
-        self.px_scale_decoder = nn.Sequential(
-            nn.Linear(n_in, n_output), nn.Softmax(dim=-1)
-        )
-        self.px_r_decoder = nn.Linear(n_in, n_output)
-        self.px_dropout_decoder = nn.Linear(n_in, n_output)
-
-    def forward(
-        self,
-        z: torch.Tensor,
-        dataset_id: int,
-        library: torch.Tensor,
-        dispersion: str,
-        *cat_list: int,
-    ):
-
-        px = z
-        if self.px_decoder_conditioned:
-            px = self.px_decoder_conditioned(px, *cat_list)
-        if self.px_decoder_final:
-            px = self.px_decoder_final(px, *cat_list)
-
-        px_scale = self.px_scale_decoder(px)
-        px_dropout = self.px_dropout_decoder(px)
-        px_rate = torch.exp(library) * px_scale
-        px_r = self.px_r_decoder(px) if dispersion == "gene-cell" else None
-
-        return px_scale, px_r, px_rate, px_dropout
 
 class MaskedLinearLayers(FCLayers):
     """
@@ -601,6 +257,110 @@ class MaskedLinearLayers(FCLayers):
                             x = torch.cat((x, *one_hot_cat_list_layer), dim=-1)
                         x = layer(x)
         return x
-       
+
+class MultiMaskedEncoder(nn.Module):
+    """
+    Maksed latent encoder with two input heads --> shared latent space
+    Options to incorporate categorical variables as one-hot vectors
+    """
+    def __init__(
+        self,
+        n_heads: int,
+        n_input_list: List[int],
+        n_output: int,
+        mask: torch.Tensor = None,
+        mask_first: bool = True,
+        n_hidden: int = 128,
+        n_layers_individual: int = 1,
+        n_layers_shared: int = 2,
+        n_cat_list: Iterable[int] = None,
+        dropout_rate: float = 0.1,
+        deeply_inject_covariates: bool = True,
+        use_batch_norm: bool = True,
+        use_layer_norm: bool = False,
+    ):
+        super().__init__()
+        
+
+        self.encoders = ModuleList(
+            [
+                MaskedLinearLayers(
+                    n_in=n_input_list[i],
+                    n_out=n_hidden,
+                    n_cat_list=n_cat_list,
+                    mask=mask,
+                    mask_first=mask_first,
+                    n_layers=n_layers_individual,
+                    n_hidden=n_hidden,
+                    dropout_rate=dropout_rate,
+                    use_batch_norm=True,
+                )
+                for i in range(n_heads)
+            ]
+        )
+
+        self.encoder_shared = FCLayers(
+            n_in=n_hidden,
+            n_out=n_hidden,
+            n_cat_list=n_cat_list,
+            n_layers=n_layers_shared,
+            n_hidden=n_hidden,
+            dropout_rate=dropout_rate,
+        )
+
+        self.mean_encoder = nn.Linear(n_hidden, n_output)
+        self.var_encoder = nn.Linear(n_hidden, n_output)
+
+    def forward(self, x: torch.Tensor, head_id: int, *cat_list: int):
+        q = self.encoders[head_id](x, *cat_list)
+        
+        q = self.encoder_shared(q, *cat_list)
+        q_m = self.mean_encoder(q)
+        q_v = torch.exp(self.var_encoder(q))
+        latent = reparameterize_gaussian(q_m, q_v)
+
+        return q_m, q_v, latent
+
+class DeltaETMDecoder(nn.Module):
+    """
+    The decoder for DeltaETM model
+    - Model the topic specific post-transcription factor for each gene between spliced and unplisced transcripts 
+    """
+    def __init__(
+        self,
+        n_input: int,
+        n_output: int,
+    ):
+        super().__init__()
+
+        # global parameters 
+        self.rho = nn.Parameter(torch.randn(n_output)) # gene-level fixed effect
+        self.delta= nn.Parameter(torch.randn(n_input,n_output)) # topic-by-gene matrix, random effect
+        # softmax operations
+        self.beta = nn.LogSoftmax(dim=-1)  # to topics loadings on each gene
+		self.hid = nn.LogSoftmax(dim=-1) # to get topic proportions
+        
+    def forward(
+        self,
+        z: torch.Tensor,
+        dataset_id: int, # 0 for spliced count and 1 for unspliced count, The order is IMPORTANT
+    ):
+
+        # expand to a topic-by-gene matrix
+        rho_matrix = self.rho.expand([n_topics,-1])
+        
+        # The order matters here, the spliced needs to be passed as adata1
+        if dataset_id == 0: # spliced count 
+            log_beta = self.beta(rho_matrix + self.delta)
+        elif dataset_id == 1: # unplisced count
+            log_beta =  self.beta(rho_matrix + self.delta)
+        else:
+            raise ValueError("DeltaETMDecoder dataset_id should be 0 (spliced) or 1 (unspliced)")
+    
+        hh = self.hid(z)    
+
+		return torch.mm(torch.exp(hh),torch.exp(log_beta)), hh
+        
+
 
 
