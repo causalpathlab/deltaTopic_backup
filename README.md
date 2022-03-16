@@ -48,3 +48,6 @@ The latent variables, along with their description are summarized in the followi
 | $\rho \in \mathbb{R}^{G}$  |  Gene-level transcioptional factor shared between unspliced and unspliced counts for each gene |   |
 | $\delta \in \mathbb{R}^{d\times G}$  |  Post-transcriptional modification per topic for each gene |   |
 
+## Some implications
+
+When we only have gene-level effect, for example in reconstructing unspliced count, it means all topics has the same gene loadings in the unspliced counts. 
