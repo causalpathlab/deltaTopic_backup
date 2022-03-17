@@ -5,10 +5,37 @@ Motivating example balabala....
 $N$ Cells $n$, $G$ Genes $g$, $d$ Topics $t$
 
 - For the spliced count,
-$$\mathbb{E}\left[X_{ng}^{spliced}|X_{ng}^{unspliced}, Z\right] = \sum_{t}h_{nt}\left(Z\right)f_{\theta}\left(\rho_{g} +\delta_{tg} \right)$$
+$$\mathbb{E}\left[X_{ng}^{spliced}|X_{ng}^{unspliced}, Z\right] = \sum_{t}h_{nt}\left(Z\right)f_{\theta}\left(\rho_{tg} +\delta_{tg} \right)$$
 
 - For the unspliced count,
-$$\mathbb{E}\left[X_{ng}^{unspliced}|Z\right] = \sum_{k}h_{nt}\left(Z\right)f_{\theta}\left(\rho_{g}\right)$$
+$$\mathbb{E}\left[X_{ng}^{unspliced}|Z\right] = \sum_{k}h_{nt}\left(Z\right)f_{\theta}\left(\rho_{tg}\right)$$
+
+$f(\rho_{tg})k()$
+Softplus:
+
+- $Softmax(log(1+\exp(\delta))\rho$ 
+
+- $h = softmax(0.5 z_s + 0.5 z_u)$
+versus concat. 
+
+- $softmax(\rho) softmax(\delta)$
+
+- torch.seed()
+
+- nLV: 5, $\leq 30$
+
+- wrapper: gradient of weight on the decoder side
+
+- Log h every (K ~ 100) epochs
+
+- seperate loglikihood every K(100) epochs
+---------
+
+
+
+
+
+
 
 
 ## Generative process
