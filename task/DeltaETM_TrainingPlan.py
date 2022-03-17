@@ -109,8 +109,7 @@ class Phase2ModelTrainingPlan(TrainingPlan):
         self.log("kl_divergence_z_s_validation", kl_divergence_z_s / n_obs)
 
 
-
-class scCLRTrainingPlan(AdversarialTrainingPlan):
+class DeltaETMTrainingPlan(AdversarialTrainingPlan):
     def __init__(
         self, 
         *args, 
@@ -165,7 +164,7 @@ class scCLRTrainingPlan(AdversarialTrainingPlan):
             scvi_loss_objs = []
             n_obs = 0
             zs = []
-            z_inds = []
+            #z_inds = []
             for (i, tensors) in enumerate(batch):
                 n_obs += tensors[_CONSTANTS.X_KEY].shape[0]
                 self.loss_kwargs.update(dict(kl_weight=self.kl_weight, mode=i))
@@ -178,7 +177,7 @@ class scCLRTrainingPlan(AdversarialTrainingPlan):
                     generative_kwargs=generative_kwargs,
                 )
                 zs.append(inference_outputs["z"])
-                z_inds.append(inference_outputs["z_ind"])
+                #z_inds.append(inference_outputs["z_ind"])
                 scvi_loss_objs.append(scvi_loss)
 
             loss = sum([scl.loss for scl in scvi_loss_objs])

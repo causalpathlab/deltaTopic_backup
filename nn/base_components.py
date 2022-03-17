@@ -325,6 +325,18 @@ class DeltaETMDecoder(nn.Module):
     """
     The decoder for DeltaETM model
     - Model the topic specific post-transcription factor for each gene between spliced and unplisced transcripts 
+
+    Testing script:
+import torch
+from nn.base_components import DeltaETMDecoder
+test_decoder = DeltaETMDecoder(n_input=10, n_output=100)
+input = torch.randn(2, 10) # batch_size 2, 10 LVs
+output = test_decoder(input, 0)
+
+log_beta = test_decoder.beta(test_decoder.rho.expand([test_decoder.n_input,-1]))
+hh = test_decoder.hid(input)
+pr = torch.mm(torch.exp(hh),torch.exp(log_beta))
+
     """
     def __init__(
         self,
@@ -332,14 +344,15 @@ class DeltaETMDecoder(nn.Module):
         n_output: int,
     ):
         super().__init__()
-
+        self.n_input = n_input
+        self.n_output = n_output
         # global parameters 
-        self.rho = nn.Parameter(torch.randn(n_output)) # gene-level fixed effect
-        self.delta= nn.Parameter(torch.randn(n_input,n_output)) # topic-by-gene matrix, random effect
+        self.rho = nn.Parameter(torch.randn(self.n_output)) # gene-level fixed effect
+        self.delta= nn.Parameter(torch.randn(self.n_input,self.n_output)) # topic-by-gene matrix, random effect
+       
         # softmax operations
-        self.beta = nn.LogSoftmax(dim=-1)  # to topics loadings on each gene
-		self.hid = nn.LogSoftmax(dim=-1) # to get topic proportions
-        
+        self.beta = nn.LogSoftmax(dim=-1) # to topics loadings on each gene
+        self.hid = nn.LogSoftmax(dim=-1) # to topics loadings on each gene
     def forward(
         self,
         z: torch.Tensor,
@@ -347,19 +360,19 @@ class DeltaETMDecoder(nn.Module):
     ):
 
         # expand to a topic-by-gene matrix
-        rho_matrix = self.rho.expand([n_topics,-1])
+        rho_matrix = self.rho.expand([self.n_input,-1])
         
         # The order matters here, the spliced needs to be passed as adata1
         if dataset_id == 0: # spliced count 
             log_beta = self.beta(rho_matrix + self.delta)
         elif dataset_id == 1: # unplisced count
-            log_beta =  self.beta(rho_matrix + self.delta)
+            log_beta =  self.beta(rho_matrix)
         else:
             raise ValueError("DeltaETMDecoder dataset_id should be 0 (spliced) or 1 (unspliced)")
-    
+        
         hh = self.hid(z)    
 
-		return torch.mm(torch.exp(hh),torch.exp(log_beta)), hh
+        return torch.mm(torch.exp(hh),torch.exp(log_beta)), hh
         
 
 
