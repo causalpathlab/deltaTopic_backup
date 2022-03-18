@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """base components"""
 import collections
-from typing import Callable, Iterable, List, Optional
+from typing import Iterable, List
 import torch
 from torch import nn as nn
 from torch.distributions import Normal
 from torch.nn import ModuleList
-from scvi.nn import FCLayers, Encoder
+from scvi.nn import FCLayers
 import torch.nn.functional as F
 from scvi.nn import one_hot
 
@@ -275,12 +275,9 @@ class MultiMaskedEncoder(nn.Module):
         n_layers_shared: int = 2,
         n_cat_list: Iterable[int] = None,
         dropout_rate: float = 0.1,
-        deeply_inject_covariates: bool = True,
         use_batch_norm: bool = True,
-        use_layer_norm: bool = False,
     ):
         super().__init__()
-        
 
         self.encoders = ModuleList(
             [
@@ -293,7 +290,7 @@ class MultiMaskedEncoder(nn.Module):
                     n_layers=n_layers_individual,
                     n_hidden=n_hidden,
                     dropout_rate=dropout_rate,
-                    use_batch_norm=True,
+                    use_batch_norm=use_batch_norm,
                 )
                 for i in range(n_heads)
             ]
