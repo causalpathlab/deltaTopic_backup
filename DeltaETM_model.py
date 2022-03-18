@@ -168,10 +168,9 @@ class DeltaETM(VAEMixin, BaseModelClass):
 
     def train(
         self,
-        max_epochs: int = 200,
+        max_epochs: int = 500,
         use_gpu: Optional[Union[str, int, bool]] = None,
         kappa: int = 5,
-        gamma: int = 5,  
         train_size: float = 0.9,
         validation_size: Optional[float] = None,
         batch_size: int = 128,
@@ -191,8 +190,6 @@ class DeltaETM(VAEMixin, BaseModelClass):
             or name of GPU (if str, e.g., `'cuda:0'`), or use CPU (if False).
         kappa
             Scaling parameter for the discriminator loss, defaut is 5
-        gamma
-            Scaling parameter for the classification loss, default is 5
         train_size
             Size of training set in the range [0.0, 1.0].
         validation_size
@@ -237,8 +234,6 @@ class DeltaETM(VAEMixin, BaseModelClass):
         plan_kwargs = plan_kwargs if isinstance(plan_kwargs, dict) else dict()
         self._training_plan = DeltaETMTrainingPlan(
             self.module,
-            source_classifier=True,
-            scale_classification_loss=gamma,
             adversarial_classifier=True,
             scale_adversarial_loss=kappa,
             **plan_kwargs,

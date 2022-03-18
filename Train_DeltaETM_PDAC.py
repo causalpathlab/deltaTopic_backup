@@ -69,10 +69,10 @@ model = DeltaETM(adata_PDAC_input, adata_normal_input, adata_pathway = pathways_
 from pytorch_lightning.loggers import WandbLogger
 wandb_logger = WandbLogger(project = 'DeltaETM')
 model.train(
-    500, 
+    5, 
     check_val_every_n_epoch=5,
     batch_size=256,
-    logger=wandb_logger)
+    logger=wandb_logger, kappa=1000)
 
 
 '''model.save("models/scCLR_masked_decoder_pancreas_final_QC_no_softmax_new", overwrite=True, save_anndata=True)
