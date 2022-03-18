@@ -3,6 +3,7 @@ import scanpy
 import anndata
 import numpy as np
 import copy
+import os
 #import matplotlib.pyplot as plt
 import scvi
 from scipy.sparse import csr_matrix
@@ -24,7 +25,9 @@ wandb.login()
 # pass args to wand.config
 #wandb.config.update(args)
 #%%
-adata = scvi.data.read_h5ad("/home/BCCRC.CA/yzhang/projects/scCLR/data/CRA001160/final_CRA001160_spliced.h5ad")
+homeDIR = os.path.join(os.path.expanduser('~'))
+os.path.join(homeDIR,'projects/scCLR/data/CRA001160/final_CRA001160_spliced.h5ad')
+adata = scvi.data.read_h5ad(os.path.join(homeDIR,'projects/scCLR/data/CRA001160/final_CRA001160_spliced.h5ad'))
 # for speed-up of training
 adata.layers["counts"] = csr_matrix(adata.X).copy()
 # save raw adata 
@@ -33,7 +36,7 @@ adata.raw = adata
 adata_PDAC = adata[adata.obs.tumor_type == "Tumor",:]
 adata_normal = adata[adata.obs.tumor_type == "Normal",:]
 # concat relevant pathways
-pathways = anndata.read_h5ad("/home/BCCRC.CA/yzhang/projects/scCLR/data/pathways/Hallmark.h5ad")
+pathways = anndata.read_h5ad(os.path.join(homeDIR,'projects/scCLR/data/pathways/Hallmark.h5ad'))
 #ad_tst = anndata.read_h5ad("data/pathways/chemgenPathways.h5ad")
 #ad_tst2 = anndata.read_h5ad("data/pathways/immunePathways.h5ad")
 #ad_tst3 = anndata.read_h5ad("data/pathways/bloodCellMarkersIRISDMAP.h5ad")
