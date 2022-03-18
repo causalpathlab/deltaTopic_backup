@@ -140,8 +140,8 @@ class DeltaETM_module(BaseModuleClass):
         z = outputs["z"]
         if deterministic:
             z = qz_m
-        if output_z_raw:
-            z = z_raw
+        #if output_z_raw:
+        #    z = z_raw
         return dict(z=z)
     
     def get_latent_parameter_z_shared(
