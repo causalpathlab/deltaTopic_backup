@@ -2,11 +2,9 @@ import torch
 
 from scvi import _CONSTANTS
 from scvi.module import Classifier
-from scvi.module.base import BaseModuleClass
-from scvi.train import AdversarialTrainingPlan, TrainingPlan
-from typing import Callable, Optional, Union
-from scvi._compat import Literal
-
+from scvi.train import AdversarialTrainingPlan
+import wandb
+import numpy as np
 class DeltaETMTrainingPlan(AdversarialTrainingPlan):
     def __init__(
         self, 
@@ -75,6 +73,15 @@ class DeltaETMTrainingPlan(AdversarialTrainingPlan):
                     torch.cat(zs), torch.cat(batch_tensor), False
                 )
                 loss += fool_loss * kappa
+                 
+            #tensor = torch.randn([10,1000,1])
+            #tensor = zs[0].detach().cpu()
+            #print(tensor.shape)
+            #array = tensor.numpy()
+            #array = np.random.randn(2,2,3)
+            #image = wandb.Image(array)
+            #image = wandb.Video(image, fps=4)
+            #wandb.log({"a": image}, step = 500)
             self.log("kappa", kappa, on_epoch=True)
             self.log("rec_loss_0", rec_losses[0], on_epoch=True)
             self.log("rec_loss_1", rec_losses[1], on_epoch=True)
