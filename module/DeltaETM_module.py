@@ -1,20 +1,13 @@
 # -*- coding: utf-8 -*-
 """Main module."""
-from typing import List, Optional, Tuple, Union, Callable, Iterable, Optional
-from scvi._compat import Literal
+from typing import List, Optional, Tuple, Optional
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.distributions import Normal, Poisson
+from torch.distributions import Normal
 from torch.distributions import kl_divergence as kl
-from torch.nn import ModuleList
 
 from scvi import _CONSTANTS
-from scvi.distributions import NegativeBinomial, ZeroInflatedNegativeBinomial
 from scvi.module.base import BaseModuleClass, LossRecorder, auto_move_data
-from scvi.nn import Encoder, one_hot
-from scvi.module import VAE
 
 from nn.base_components import MultiMaskedEncoder, DeltaETMDecoder
 
@@ -208,9 +201,9 @@ class DeltaETM_module(BaseModuleClass):
     @auto_move_data
     def generative(self,z: torch.Tensor, mode: int) -> dict:
 
-        recon, hh  = self.decoder(z, mode)
+        recon, hh, log_softmax_rho, log_softmax_delta  = self.decoder(z, mode)
 
-        return dict(recon=recon, hh=hh)
+        return dict(recon=recon, hh=hh, log_softmax_rho = log_softmax_rho, log_softmax_delta = log_softmax_delta)
     # this is for the purpose of computing the integrated gradient 
     # output source specifc or shared LV based no the interests 
     def get_latent_representation(
