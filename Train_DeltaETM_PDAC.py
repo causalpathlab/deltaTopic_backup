@@ -1,8 +1,5 @@
-import torch
-import scanpy
 import anndata
 import numpy as np
-import copy
 import os
 #import matplotlib.pyplot as plt
 import scvi
@@ -67,12 +64,14 @@ model = DeltaETM(adata_PDAC_input, adata_normal_input, adata_pathway = pathways_
 #model = scCLR(adata_tumor_input, adata_metastatic_input, mask = torch.bernoulli(torch.empty(100, 16445).uniform_(0, 1)))
 #%%
 from pytorch_lightning.loggers import WandbLogger
+# this has to be passed, otherwise pytroch lighting logging won't be passed to wandb
 wandb_logger = WandbLogger(project = 'DeltaETM')
 model.train(
-    5, 
+    5000, 
     check_val_every_n_epoch=5,
     batch_size=256,
-    logger=wandb_logger, kappa=1000)
+    logger = wandb_logger,
+    )
 
 
 '''model.save("models/scCLR_masked_decoder_pancreas_final_QC_no_softmax_new", overwrite=True, save_anndata=True)
