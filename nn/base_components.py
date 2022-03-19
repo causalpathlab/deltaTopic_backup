@@ -344,32 +344,34 @@ pr = torch.mm(torch.exp(hh),torch.exp(log_beta))
         self.n_input = n_input
         self.n_output = n_output
         # global parameters 
-        self.rho = nn.Parameter(torch.randn(self.n_output)) # gene-level fixed effect
-        self.delta= nn.Parameter(torch.randn(self.n_input,self.n_output)) # topic-by-gene matrix, random effect
+        self.rho = nn.Parameter(torch.randn(self.n_input, self.n_output)) # topic-by-gene matrix, shared effect
+        self.delta= nn.Parameter(torch.randn(self.n_input,self.n_output)) # topic-by-gene matrix, differnces
        
-        # softmax operations
-        self.beta = nn.LogSoftmax(dim=-1) # to topics loadings on each gene
+        # Log softmax operations
+        self.logsftm_rho = nn.LogSoftmax(dim=-1) 
+        self.logsftm_delta = nn.LogSoftmax(dim=-1) 
         self.hid = nn.LogSoftmax(dim=-1) # to topics loadings on each gene
+
     def forward(
         self,
         z: torch.Tensor,
         dataset_id: int, # 0 for spliced count and 1 for unspliced count, The order is IMPORTANT
     ):
-
-        # expand to a topic-by-gene matrix
-        rho_matrix = self.rho.expand([self.n_input,-1])
+        
+        self.log_softmax_rho = self.logsftm_rho(self.rho)
+        self.log_softmax_delta = self.logsftm_delta(self.delta)
         
         # The order matters here, the spliced needs to be passed as adata1
         if dataset_id == 0: # spliced count 
-            log_beta = self.beta(rho_matrix + self.delta)
+            log_beta = self.log_softmax_rho + self.log_softmax_delta
         elif dataset_id == 1: # unplisced count
-            log_beta =  self.beta(rho_matrix)
+            log_beta =  self.log_softmax_rho
         else:
             raise ValueError("DeltaETMDecoder dataset_id should be 0 (spliced) or 1 (unspliced)")
         
         hh = self.hid(z)    
 
-        return torch.mm(torch.exp(hh),torch.exp(log_beta)), hh
+        return torch.mm(torch.exp(hh),torch.exp(log_beta)), hh, self.log_softmax_rho, self.log_softmax_delta
         
 
 
