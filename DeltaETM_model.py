@@ -25,6 +25,10 @@ from scvi.train import TrainRunner
 from captum.attr import LayerConductance, LayerActivation, LayerIntegratedGradients, LayerDeepLift, LayerDeepLiftShap
 from captum.attr import IntegratedGradients, DeepLift, GradientShap, NoiseTunnel, FeatureAblation
 
+import wandb
+# start a new experiment
+wandb.init(project="DeltaETM")
+
 logger = logging.getLogger(__name__)
 
 def _unpack_tensors(tensors):
@@ -239,6 +243,7 @@ class DeltaETM(VAEMixin, BaseModelClass):
             **plan_kwargs,
         )
 
+        wandb.watch(self.module.decoder, log_freq=10, log="all")
         if train_size == 1.0:
             # circumvent the empty data loader problem if all dataset used for training
             self.trainer.fit(self._training_plan, train_dl)
