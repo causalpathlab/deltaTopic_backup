@@ -102,7 +102,10 @@ class DeltaETM_module(BaseModuleClass):
 
 
     def sample_from_posterior_z(
-        self, x: torch.Tensor, mode: int = None, deterministic: bool = False
+        self, x: torch.Tensor, 
+        mode: int = None, 
+        deterministic: bool = False, 
+        output_softmax_z: bool = True,
     ) -> torch.Tensor:
         """
         Sample tensor of latent values from the posterior.
@@ -115,6 +118,8 @@ class DeltaETM_module(BaseModuleClass):
             head id to use in the encoder
         deterministic
             bool - whether to sample or not
+        output_softmax_z
+            bool - whether to output the softmax of the z or not
 
         Returns
         -------
@@ -127,44 +132,19 @@ class DeltaETM_module(BaseModuleClass):
                 mode = 0
             else:
                 raise Exception("Must provide a mode when having multiple datasets")
-        outputs = self.inference(x, mode)
-
-        qz_m = outputs["qz_m"]
-        z = outputs["z"]
+    
+        inference_out = self.inference(x, mode)
         if deterministic:
-            z = qz_m
-        #if output_z_raw:
-        #    z = z_raw
+            #print('detereministic z')
+            z = inference_out["qz_m"]
+        else:
+            #print("stocaistic z")
+            z = inference_out["z"]
+        if output_softmax_z:
+            #print("z is transformed by Softmax")
+            generative_outputs = self.generative(z, mode)
+            z = generative_outputs["hh"]      
         return dict(z=z)
-    
-    def get_latent_parameter_z_shared(
-        self, x: torch.Tensor, mode: int = None) -> torch.Tensor:
-        """
-        Sample tensor of latent values from the posterior.
-
-        Parameters
-        ----------
-        x
-            tensor of values with shape ``(batch_size, n_input)``
-        mode
-            head id to use in the encoder
-
-        Returns
-        -------
-        type
-            qz_m qz_v
-            dictionary of tensors of shape ``(batch_size, n_latent)``
-    
-        """
-        if mode is None:
-            if len(self.n_input_list) == 1:
-                mode = 0
-            else:
-                raise Exception("Must provide a mode when having multiple datasets")
-        outputs = self.inference(x, mode)
-        qz_m = outputs["qz_m"] 
-        qz_v = outputs["qz_v"]
-        return dict(qz_m = qz_m, qz_v = qz_v)
     
     def reconstruction_loss(
         self,
@@ -204,21 +184,23 @@ class DeltaETM_module(BaseModuleClass):
         recon, hh, log_softmax_rho, log_softmax_delta  = self.decoder(z, mode)
 
         return dict(recon=recon, hh=hh, log_softmax_rho = log_softmax_rho, log_softmax_delta = log_softmax_delta)
-    # this is for the purpose of computing the integrated gradient 
-    # output source specifc or shared LV based no the interests 
+    
+    # this is for the purpose of computing the integrated gradient, output z but not dict
     def get_latent_representation(
         self, 
         tensors: torch.Tensor,
         mode: int,
         deterministic: bool = False,
-        output_z_ind: bool = True,  
+        output_softmax_z: bool = True, 
     ):
         inference_out = self.inference(tensors, mode)
         if deterministic:
             z = inference_out["qz_m"]
         else:
             z = inference_out["z"]
-        
+        if output_softmax_z:
+            generative_outputs = self.generative(z, mode)
+            z = generative_outputs["hh"]      
         return z
 
     def get_reconstruction_loss(
@@ -236,8 +218,6 @@ class DeltaETM_module(BaseModuleClass):
         x
             tensor of values with shape ``(batch_size, n_input)``
             or ``(batch_size, n_input_fish)`` depending on the mode
-        y
-            tensor of cell-types labels with shape ``(batch_size, n_labels)``
         mode
             int encode mode (which input head to use in the model)
         batch_index
@@ -264,8 +244,6 @@ class DeltaETM_module(BaseModuleClass):
         gen_out = self.generative(z, decode_mode)
         
         recon = gen_out['recon']
-       
-
         reconstruction_loss = self.reconstruction_loss(x, recon)
         return reconstruction_loss
 
@@ -273,7 +251,7 @@ class DeltaETM_module(BaseModuleClass):
         self,
         tensors,
         inference_outputs,
-        generative_outputs,
+        generative_outputs, # this is important to include
         mode: Optional[int] = None,
         kl_weight=1.0,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -330,39 +308,13 @@ class DeltaETM_module(BaseModuleClass):
 
         return LossRecorder(loss, reconstruction_loss, kl_local)
 
-    @torch.no_grad()
-    def get_loadings(self) -> np.ndarray:
-        """Extract per-gene weights (for each Z, shape is genes by dim(Z)) in the linear decoder."""
-        # This is BW, where B is diag(b) batch norm, W is weight matrix
-        w = self.decoder.pathway_decoders[0].fc_layers[0][0].weight
-        bn = self.decoder.pathway_decoders[0].fc_layers[0][1]
-        sigma = torch.sqrt(bn.running_var + bn.eps)
-        gamma = bn.weight
-        b = gamma / sigma
-        b_identity = torch.diag(b)
-        loadings = torch.matmul(b_identity, w)
-        loadings_domain1 = loadings.detach().cpu().numpy()   
- 
-        w = self.decoder.pathway_decoders[1].fc_layers[0][0].weight
-        bn = self.decoder.pathway_decoders[1].fc_layers[0][1]
-        sigma = torch.sqrt(bn.running_var + bn.eps)
-        gamma = bn.weight
-        b = gamma / sigma
-        b_identity = torch.diag(b)
-        loadings = torch.matmul(b_identity, w)
-        loadings_domain2 = loadings.detach().cpu().numpy()   
-
-        w = self.decoder.pathway_decoder_shared.fc_layers[0][0].weight
-        bn = self.decoder.pathway_decoder_shared.fc_layers[0][1]
-        sigma = torch.sqrt(bn.running_var + bn.eps)
-        gamma = bn.weight
-        b = gamma / sigma
-        b_identity = torch.diag(b)
-        loadings = torch.matmul(b_identity, w)
-        loadings_domain_shared = loadings.detach().cpu().numpy() 
+    '''@torch.no_grad()
+    def get_delta(self) -> np.ndarray:
         
-        return loadings_domain1, loadings_domain2, loadings_domain_shared
-
+        delta = self.decoder.delta.weight.data.cpu().numpy()
+        
+        return delta
+'''
 
 
 '''
