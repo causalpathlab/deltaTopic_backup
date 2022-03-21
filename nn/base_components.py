@@ -369,9 +369,9 @@ pr = torch.mm(torch.exp(hh),torch.exp(log_beta))
         else:
             raise ValueError("DeltaETMDecoder dataset_id should be 0 (spliced) or 1 (unspliced)")
         
-        hh = self.hid(z)    
+        hh = torch.exp(self.hid(z))     
 
-        return torch.mm(torch.exp(hh),torch.exp(log_beta)), hh, self.log_softmax_rho, self.log_softmax_delta
+        return torch.mm(hh,torch.exp(log_beta)), hh, self.log_softmax_rho, self.log_softmax_delta
         
 
 
