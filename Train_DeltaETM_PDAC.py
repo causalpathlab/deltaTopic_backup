@@ -1,7 +1,5 @@
 import anndata
-import numpy as np
 import os
-#import matplotlib.pyplot as plt
 import scvi
 from scipy.sparse import csr_matrix
 #from scipy.stats import spearmanr
@@ -31,8 +29,11 @@ adata.raw = adata
 # get PDAC and normal samples
 adata_PDAC = adata[adata.obs.tumor_type == "Tumor",:]
 adata_normal = adata[adata.obs.tumor_type == "Normal",:]
-# concat relevant pathways
+
+#%%
 pathways = anndata.read_h5ad(os.path.join(DataDIR,'pathways/Hallmark.h5ad'))
+# concat relevant pathways
+
 #ad_tst = anndata.read_h5ad("data/pathways/chemgenPathways.h5ad")
 #ad_tst2 = anndata.read_h5ad("data/pathways/immunePathways.h5ad")
 #ad_tst3 = anndata.read_h5ad("data/pathways/bloodCellMarkersIRISDMAP.h5ad")
@@ -58,7 +59,6 @@ setup_anndata(pathways_input)
 #%%
 #create our model
 from DeltaETM_model import DeltaETM
-import torch
 model = DeltaETM(adata_PDAC_input, adata_normal_input, adata_pathway = pathways_input)
 #model = scCLR(adata_tumor_input, adata_metastatic_input, mask = torch.bernoulli(torch.empty(100, 16445).uniform_(0, 1)))
 #%%
@@ -66,12 +66,12 @@ from pytorch_lightning.loggers import WandbLogger
 # this has to be passed, otherwise pytroch lighting logging won't be passed to wandb
 wandb_logger = WandbLogger(project = 'DeltaETM')
 model.train(
-    5000, 
+    5, 
     check_val_every_n_epoch=5,
     batch_size=256,
     logger = wandb_logger,
     )
-
+#%%
 
 '''model.save("models/scCLR_masked_decoder_pancreas_final_QC_no_softmax_new", overwrite=True, save_anndata=True)
 
