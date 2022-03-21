@@ -40,6 +40,9 @@ def _unpack_tensors(tensors):
     return x, local_l_mean, local_l_var, batch_index, y
 
 def set_up_adata_pathway(adata_pathway, minGenes=10):
+    """
+    remove pathways with less than "minGenes" genes
+    """
     # remove bad pathways
     mask = adata_pathway.X.copy()
     pathway_size = np.sum(mask,1)
@@ -55,14 +58,14 @@ class DeltaETM(VAEMixin, BaseModelClass):
 
     Parameters
     ----------
-    adata_source1
-        AnnData object that has been registered via :func:`~scvi.data.setup_anndata`
+    adata_seq
+        Spliced count AnnData object that has been registered via :func:`~scvi.data.setup_anndata`
         and contains source1 data.
-    adata_source2
-        AnnData object that has been registered via :func:`~scvi.data.setup_anndata`
+    adata_spatial
+        Unscplied count AnnData object that has been registered via :func:`~scvi.data.setup_anndata`
         and contains source2 data.
     adata_pathway
-        Anndata object AnnData object that has been registered via :func:`~scvi.data.setup_anndata`
+        Pathway AnnData object that has been registered via :func:`~scvi.data.setup_anndata`
         and contains pathway information. Note that genes needs to be equal to the input genes in 
         adata_source1
     mask 
@@ -70,14 +73,10 @@ class DeltaETM(VAEMixin, BaseModelClass):
         is only avaiable when adata_pathway is None 
     n_hidden
         Number of nodes per hidden layer.
-    generative_distributions
-        List of generative distribution for adata_seq data and adata_spatial data.
-    model_library_size
-        List of bool of whether to model library size for adata_seq and adata_spatial.
     n_latent
         Dimensionality of the latent space.
     **model_kwargs
-        Keyword args for :class:`~module.scCLR_module`
+        Keyword args for :class:`~module.DeltaETM_module`
 
     Examples
     --------
@@ -85,8 +84,8 @@ class DeltaETM(VAEMixin, BaseModelClass):
     >>> adata_spatial = anndata.read_h5ad(path_to_anndata_spatial)
     >>> scvi.data.setup_anndata(adata_seq)
     >>> scvi.data.setup_anndata(adata_spatial)
-    >>> vae = scvi.model.GIMVI(adata_seq, adata_spatial)
-    >>> vae.train(n_epochs=400)
+    >>> DeltaETM = DeltaEMT(adata_seq, adata_spatial, adata_pathway)
+    >>> DeltaETM.train(n_epochs=400)
 
 
     """
@@ -97,8 +96,6 @@ class DeltaETM(VAEMixin, BaseModelClass):
         adata_spatial: AnnData,
         adata_pathway: AnnData = None,
         mask: torch.Tensor = None,
-        generative_distributions: List = ["zinb", "zinb"],
-        model_library_size: List = [True, True],
         n_latent: int = 10,
         combine_latent: str = 'cat',
         **model_kwargs,
@@ -268,74 +265,28 @@ class DeltaETM(VAEMixin, BaseModelClass):
             dl.mode = i
 
         return post_list
-
-
-    @torch.no_grad()
-    def get_parameters_z_shared(
-        self,
-        adatas: List[AnnData] = None,
-        deterministic: bool = True,
-        batch_size: int = 128,
-    ) -> List[np.ndarray]:
-        """
-        Return the latent space embedding for each dataset.
-
-        Parameters
-        ----------
-        adatas
-            List of adata seq and adata spatial.
-        deterministic
-            If true, use the mean of the encoder instead of a Gaussian sample.
-        batch_size
-            Minibatch size for data loading into model.
-        """
-        if adatas is None:
-            adatas = self.adatas
-        scdls = self._make_scvi_dls(adatas, batch_size=batch_size)
-        self.module.eval()
-        latent_shared_parameters = []
-        
-        for mode, scdl in enumerate(scdls):
-            qz_m = []
-            qz_v = []
-            for tensors in scdl:
-                (
-                    sample_batch,
-                    local_l_mean,
-                    local_l_var,
-                    batch_index,
-                    label,
-                    *_,
-                ) = _unpack_tensors(tensors)
-                z_dict  = self.module.get_latent_parameter_z_shared(sample_batch, mode)
-                qz_m.append(z_dict["qz_m"])
-                qz_v.append(z_dict["qz_v"])                
-
-            latent_m = torch.cat(qz_m).cpu().detach().numpy()
-            latent_v = torch.cat(qz_v).cpu().detach().numpy()
-            
-            latent_shared_parameters.append(dict(latent_m=latent_m, latent_v=latent_v))
-
-        return latent_shared_parameters
-
+    
     @torch.no_grad()
     def get_latent_representation(
         self,
         adatas: List[AnnData] = None,
         deterministic: bool = True,
         batch_size: int = 128,
+        output_softmax_z: bool = True,
     ) -> List[np.ndarray]:
         """
-        Return the latent space embedding for each dataset.
+        Return the latent space embedding for each dataset, i.e., spliced and unspliced
 
         Parameters
         ----------
         adatas
-            List of adata seq and adata spatial.
+            List of adata_spliced and adata_unspliced.
         deterministic
             If true, use the mean of the encoder instead of a Gaussian sample.
         batch_size
             Minibatch size for data loading into model.
+        output_softmax_z
+            If true, return the softmax of the latent space embedding.
         """
         if adatas is None:
             adatas = self.adatas
@@ -344,26 +295,18 @@ class DeltaETM(VAEMixin, BaseModelClass):
         latents = []
         
         for mode, scdl in enumerate(scdls):
-            latent_z_ind = []
             latent_z = []
             for tensors in scdl:
                 (
                     sample_batch,
-                    local_l_mean,
-                    local_l_var,
-                    batch_index,
-                    label,
                     *_,
                 ) = _unpack_tensors(tensors)
-                z_dict  = self.module.sample_from_posterior_z(sample_batch, mode, deterministic=deterministic)
-                latent_z_ind.append(z_dict["z_ind"])
+                z_dict  = self.module.sample_from_posterior_z(sample_batch, mode, deterministic=deterministic, output_softmax_z = output_softmax_z)
                 latent_z.append(z_dict["z"])                
 
             latent_z = torch.cat(latent_z).cpu().detach().numpy()
-            latent_z_ind = torch.cat(latent_z_ind).cpu().detach().numpy()
-            
-            latents.append(dict(latent_z_ind=latent_z_ind, latent_z=latent_z))
-
+            latents.append(dict(latent_z=latent_z))
+        print(f'Deterministic: {deterministic}\nOutput_softmax_z: {output_softmax_z}')
         return latents
 
     def get_featues_scores_LV(
@@ -373,8 +316,8 @@ class DeltaETM(VAEMixin, BaseModelClass):
         deterministic: bool = True,
         batch_size: int = 128,
         n_steps: int = 50,
-        output_z_ind: bool= True, 
-    ):
+        output_softmax_z: bool = True,
+    ):  
         """
         Compute the attribution scores of features to LVs.
 
@@ -395,10 +338,10 @@ class DeltaETM(VAEMixin, BaseModelClass):
             batch size for the data loader
         n_steps
             number of steps in integreated gradient
-        output_z_ind
-            wheather to use source-specifc LV or shared LVs, default is True (sorce-specific LVs)
+        output_softmax_z
+            wheather to output the softmax of the latent space embedding
         """
-        print(f'Attribution layer: {attribution_layer}\noutput_z_ind: {output_z_ind}')
+        print(f'Attribution layer: {attribution_layer}, output_softmax_z: {output_softmax_z}')
         self.module.eval()
 
         if adatas is None:
@@ -414,10 +357,6 @@ class DeltaETM(VAEMixin, BaseModelClass):
             for tensors in scdl:
                 (
                     sample_batch,
-                    local_l_mean,
-                    local_l_var,
-                    batch_index,
-                    label,
                     *_,
                 ) = _unpack_tensors(tensors)
                 
@@ -432,7 +371,7 @@ class DeltaETM(VAEMixin, BaseModelClass):
                     pathway_score_dict[key].append(
                         lig.attribute(
                             sample_batch, 
-                            additional_forward_args=(mode, deterministic, output_z_ind), 
+                            additional_forward_args=(mode, deterministic, output_softmax_z), 
                             n_steps=n_steps, 
                             target=key,
                         )
@@ -635,32 +574,19 @@ class DeltaETM(VAEMixin, BaseModelClass):
         model.to_device(device)
         return model
     
-    def get_loadings(self) -> pd.DataFrame:
+    def get_delta(self) -> pd.DataFrame:
         """
-        Extract per-gene weights in the linear decoder.
-
-        Shape is genes by `n_latent`.
-
+        get_delta
         """
-        cols_1 = ["Z1_{}".format(i) for i in range(self.n_latent)]
-        cols_2 = ["Z2_{}".format(i) for i in range(self.n_latent)]
-        cols_s = ["Zshared_{}".format(i) for i in range(self.n_latent)]
+        cols = ["topic_{}".format(i) for i in range(self.n_latent)]
         #var_names = _get_var_names_from_setup_anndata(self.adata_path)
-        np_loadings_domain1, np_loadings_domain2, np_loadings_domain_shared = self.module.get_loadings()
+        np_loadings = self.module.get_loadings()
 
-        loadings_domain1 = pd.DataFrame(
-            np_loadings_domain1,index=self.adata_pathway.obs.index, columns=cols_1
+        loadings = pd.DataFrame(
+            np_loadings,index=self.adata_pathway.obs.index, columns=cols
         )
 
-        loadings_domain2 = pd.DataFrame(
-            np_loadings_domain2,index=self.adata_pathway.obs.index, columns=cols_2
-        )
-
-        loadings_domain_shared = pd.DataFrame(
-            np_loadings_domain_shared,index=self.adata_pathway.obs.index, columns=cols_s
-        )
-
-        return loadings_domain1, loadings_domain2, loadings_domain_shared
+        return loadings
 
 class TrainDL(DataLoader):
     def __init__(self, data_loader_list, **kwargs):
