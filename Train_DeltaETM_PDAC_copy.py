@@ -81,9 +81,9 @@ model.train(
 #    model_kwargs,
     )
 #%%
-
-model.save(f"models/DeltaETM_allgenes_ep{args.EPOCES}_nlv{args.nLV}_bs{args.bs}", overwrite=True, save_anndata=True)
-
+savefile_name = f"models/DeltaETM_allgenes_ep{args.EPOCHS}_nlv{args.nLV}_bs{args.bs}"
+model.save(savefile_name, overwrite=True, save_anndata=True)
+print(f"Model saved to {savefile_name}")
 ########
 
 
