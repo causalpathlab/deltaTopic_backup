@@ -76,7 +76,6 @@ wandb_logger = WandbLogger(project = 'DeltaETM')
 model.train(
     args.EPOCHS, 
     check_val_every_n_epoch=5,
-    gpus = [2],
     batch_size=args.bs,
     logger = wandb_logger,
 #    model_kwargs,
