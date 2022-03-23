@@ -96,7 +96,7 @@ class DeltaETM(VAEMixin, BaseModelClass):
         adata_spatial: AnnData,
         adata_pathway: AnnData = None,
         mask: torch.Tensor = None,
-        n_latent: int = 10,
+        n_latent: int = 4,
         combine_latent: str = 'cat',
         **model_kwargs,
     ):
