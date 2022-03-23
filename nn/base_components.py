@@ -313,7 +313,7 @@ class MultiMaskedEncoder(nn.Module):
         
         q = self.encoder_shared(q, *cat_list)
         q_m = self.mean_encoder(q)
-        q_v = torch.exp(self.var_encoder(q))
+        q_v = torch.exp(torch.clamp(self.var_encoder(q), -4.0, 4.0)/2.)
         latent = reparameterize_gaussian(q_m, q_v)
 
         return q_m, q_v, latent
