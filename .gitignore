@@ -11,3 +11,5 @@ models/*
 .RData
 .RDataTmp
 
+adversarialTrainingPlan.py
+totalvi_model.py

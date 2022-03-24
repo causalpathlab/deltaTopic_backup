@@ -372,6 +372,136 @@ pr = torch.mm(torch.exp(hh),torch.exp(log_beta))
         hh = torch.exp(self.hid(z))     
 
         return torch.mm(hh,torch.exp(log_beta)), hh, self.log_softmax_rho, self.log_softmax_delta
+
+class TotalMultiMaskedEncoder(nn.Module):
+    """
+    Maksed latent encoder with two input heads --> one shared latent space
+    Options to incorporate categorical variables as one-hot vectors
+    """
+    def __init__(
+        self,
+        n_input_list: List[int],
+        n_output: int,
+        mask: torch.Tensor = None,
+        mask_first: bool = True,
+        n_hidden: int = 128,
+        n_layers_individual: int = 1,
+        n_layers_shared: int = 2,
+        n_cat_list: Iterable[int] = None,
+        dropout_rate: float = 0.1,
+        use_batch_norm: bool = True,
+        log_variational: bool = True,
+        combine_method: str = "concat",
+    ):
+        super().__init__()
+        self.log_variational = log_variational
+        self.combine_method = combine_method
+        self.encoders = ModuleList(
+            [
+                MaskedLinearLayers(
+                    n_in=n_input_list[i],
+                    n_out=n_hidden,
+                    n_cat_list=n_cat_list,
+                    mask=mask,
+                    mask_first=mask_first,
+                    n_layers=n_layers_individual,
+                    n_hidden=n_hidden,
+                    dropout_rate=dropout_rate,
+                    use_batch_norm=use_batch_norm,
+                )
+                for i in range(len(n_input_list))
+            ]
+        )
+        if self.combine_method == 'concat':
+            dim_encoder_shared = n_hidden + n_hidden
+        elif self.combine_method == 'add':
+            dim_encoder_shared = n_hidden
+        else:
+            raise ValueError("combine method must choose from concat or add") 
+        
+        self.encoder_shared = FCLayers(
+            n_in=dim_encoder_shared,
+            n_out=n_hidden,
+            n_cat_list=n_cat_list,
+            n_layers=n_layers_shared,
+            n_hidden=n_hidden,
+            dropout_rate=dropout_rate,
+        )
+
+        self.mean_encoder = nn.Linear(n_hidden, n_output)
+        self.var_encoder = nn.Linear(n_hidden, n_output)
+
+    def forward(self, x: torch.Tensor, y: torch.Tensor, *cat_list: int):
+        
+        if self.log_variational:
+            x_ = torch.log(1 + x)
+            y_ = torch.log(1 + y)
+        
+        q_x = self.encoders[0](x_, *cat_list)
+        q_y = self.encoders[1](y_, *cat_list)
+        
+        if self.combine_method == 'concat':
+            q = torch.cat([q_x, q_y], dim=-1)
+        elif self.combine_method == 'add':
+            q = (q_x + q_y)/2.
+        else:
+            raise ValueError("combine method must choose from concat or add")  
+         
+        q = self.encoder_shared(q, *cat_list)
+        q_m = self.mean_encoder(q)
+        q_v = torch.exp(torch.clamp(self.var_encoder(q), -4.0, 4.0)/2.)
+        latent = reparameterize_gaussian(q_m, q_v)
+
+        return q_m, q_v, latent
+
+class TotalDeltaETMDecoder(nn.Module):
+    """
+    The decoder for DeltaETM model
+    - Model the topic specific post-transcription factor for each gene between spliced and unplisced transcripts 
+
+    Testing script:
+import torch
+from nn.base_components import DeltaETMDecoder
+test_decoder = DeltaETMDecoder(n_input=10, n_output=100)
+input = torch.randn(2, 10) # batch_size 2, 10 LVs
+output = test_decoder(input, 0)
+
+log_beta = test_decoder.beta(test_decoder.rho.expand([test_decoder.n_input,-1]))
+hh = test_decoder.hid(input)
+pr = torch.mm(torch.exp(hh),torch.exp(log_beta))
+
+    """
+    def __init__(
+        self,
+        n_input: int,
+        n_output: int,
+    ):
+        super().__init__()
+        self.n_input = n_input
+        self.n_output = n_output
+        # global parameters 
+        self.rho = nn.Parameter(torch.randn(self.n_input, self.n_output)) # topic-by-gene matrix, shared effect
+        self.delta= nn.Parameter(torch.randn(self.n_input,self.n_output)) # topic-by-gene matrix, differnces
+       
+        # Log softmax operations
+        self.logsftm_rho = nn.LogSoftmax(dim=-1) 
+        self.logsftm_delta = nn.LogSoftmax(dim=-1) 
+        self.hid = nn.LogSoftmax(dim=-1) # to topics loadings on each gene
+
+    def forward(
+        self,
+        z: torch.Tensor,
+    ):
+        
+        self.log_softmax_rho = self.logsftm_rho(self.rho)
+        self.log_softmax_delta = self.logsftm_delta(self.delta)
+        
+
+        log_beta_spliced = self.log_softmax_rho + self.log_softmax_delta
+        log_beta_unspliced =  self.log_softmax_rho
+        hh = torch.exp(self.hid(z))     
+        # torch.mm(hh,torch.exp(log_beta))
+        return log_beta_spliced, log_beta_unspliced, hh, self.log_softmax_rho, self.log_softmax_delta
         
 
 
