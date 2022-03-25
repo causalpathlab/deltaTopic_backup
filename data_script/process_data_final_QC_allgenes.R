@@ -5,8 +5,8 @@ library(EnsDb.Hsapiens.v86)
 library(msigdbi)
 library(anndata)
 
-data_DIR = '/home/yichenzhang/projects/data/CRA001160/PDAC/pdac_velocity_topic/Results/QC/'
-pathway_DIR = '/home/yichenzhang/projects/data/pathways/'
+data_DIR = '/home/BCCRC.CA/yzhang/projects/data/CRA001160/PDAC/pdac_velocity_topic/Results/QC/'
+pathway_DIR = '/home/BCCRC.CA/yzhang/projects/data/pathways/'
 
 paste(save_file_DIR, paste0("final_CRA001160_", splicing,"_allgenes.h5ad"), sep = '')
 # read in the data
@@ -53,7 +53,7 @@ names(samples_df) <- c('barcode', 'Accession')
 samples_df <- dplyr::left_join(samples_df, meta_data, by = 'Accession')
 
 ###
-splicing = "unspliced"
+splicing = "spliced"
 # get the spliced genes
 a1 = str_detect(rows$V1, paste0("_",splicing))
 # check if the genes are in the pathway
@@ -91,4 +91,4 @@ if(sum(genes_df$SYMBOL %>% duplicated()) > 0){
 ad <- AnnData(X = t(counts_select), 
               obs = data.frame(sample_id = samples_df$ID, tumor_type = samples_df$Tissue_type, sex = samples_df$Sex, row.names = cols$V1), 
               var = data.frame(unique_gene_id = genes_df$unique_gene_id, gene = genes_df$SYMBOL, row.names = genes_df$SYMBOL))
-ad$write_h5ad(filename = paste("/home/yichenzhang/projects/data/CRA001160/final_CRA001160",splicing, "allgenes.h5ad", sep = "_"))
+ad$write_h5ad(filename = paste("/home/BCCRC.CA/yzhang/projects/data/CRA001160/final_CRA001160",splicing, "allgenes.h5ad", sep = "_"))
