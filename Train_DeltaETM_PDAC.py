@@ -14,7 +14,7 @@ wandb.init(entity="thisisyichen")
 # Input parser
 parser = argparse.ArgumentParser(description='Parameters for NN')
 parser.add_argument('--EPOCHS', type=int, help='EPOCHS', default=500)
-#parser.add_argument('--lr', type=float, help='learning_rate', default=1e-3)
+parser.add_argument('--lr', type=float, help='learning_rate', default=1e-3)
 #parser.add_argument('--CUDA', type=int, help='which GPU to use', default=0)
 parser.add_argument('--nLV', type=int, help='User specified nLV', default=4)
 parser.add_argument('--bs', type=int, help='Batch size', default=256)
@@ -72,13 +72,13 @@ model = DeltaETM(adata_spliced, adata_unspliced, n_latent = args.nLV)
 from pytorch_lightning.loggers import WandbLogger
 # this has to be passed, otherwise pytroch lighting logging won't be passed to wandb
 wandb_logger = WandbLogger(project = 'DeltaETM')
-#model_kwargs = {"lr": args.lr}
+model_kwargs = {"lr": args.lr}
 model.train(
     args.EPOCHS, 
     check_val_every_n_epoch=5,
     batch_size=args.bs,
     logger = wandb_logger,
-#    model_kwargs,
+    **model_kwargs,
     )
 #%%
 savefile_name = f"models/DeltaETM_allgenes_ep{args.EPOCHS}_nlv{args.nLV}_bs{args.bs}"

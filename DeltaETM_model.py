@@ -16,19 +16,18 @@ from scvi.data import transfer_anndata_setup
 from scvi.dataloaders import DataSplitter
 from scvi.model._utils import _get_var_names_from_setup_anndata, parse_use_gpu_arg
 from scvi.model.base import RNASeqMixin, VAEMixin, ArchesMixin, BaseModelClass
-from scvi.train import Trainer, AdversarialTrainingPlan, TrainRunner
+from scvi.train import Trainer, TrainRunner
 from task.TotalDeltaETM_TrainingPlan import TrainingPlan
 
 from module.DeltaETM_module import DeltaETM_module, TotalDeltaETM_module
 from task.DeltaETM_TrainingPlan import DeltaETMTrainingPlan
 from scvi.train import TrainRunner
 
-from captum.attr import LayerConductance, LayerActivation, LayerIntegratedGradients, LayerDeepLift, LayerDeepLiftShap
-from captum.attr import IntegratedGradients, DeepLift, GradientShap, NoiseTunnel, FeatureAblation
-
-import wandb
+from captum.attr import LayerIntegratedGradients 
+from captum.attr import IntegratedGradients
+#import wandb
 # start a new experiment
-wandb.init(project="TotalDeltaETM")
+#wandb.init(project="TotalDeltaETM")
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +241,7 @@ class DeltaETM(VAEMixin, BaseModelClass):
             **plan_kwargs,
         )
 
-        wandb.watch(self.module.decoder, log_freq=10, log="all")
+        #wandb.watch(self.module.decoder, log_freq=10, log="all")
         if train_size == 1.0:
             # circumvent the empty data loader problem if all dataset used for training
             self.trainer.fit(self._training_plan, train_dl)
@@ -689,7 +688,7 @@ class TotalDeltaETM(RNASeqMixin, VAEMixin, ArchesMixin, BaseModelClass):
             + "n_batch: {}, combine_latent: {}"
         ).format(n_latent, self.summary_stats["n_vars"], self.summary_stats["n_batch"], combine_latent)
         self.init_params_ = self._get_init_params(locals())    
-        wandb.watch(self.module.decoder, log_freq=10, log="all")
+        #wandb.watch(self.module.decoder, log_freq=10, log="all")
     def train(
         self,
         max_epochs: Optional[int] = 400,
