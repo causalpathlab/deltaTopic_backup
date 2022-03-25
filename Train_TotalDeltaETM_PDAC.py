@@ -11,7 +11,7 @@ from scipy.sparse import csr_matrix
 # Input parser
 parser = argparse.ArgumentParser(description='Parameters for NN')
 parser.add_argument('--EPOCHS', type=int, help='EPOCHS', default=2000)
-parser.add_argument('--lr', type=float, help='learning_rate', default=1e-1)
+parser.add_argument('--lr', type=float, help='learning_rate', default=1e-2)
 parser.add_argument('--use_gpu', type=int, help='which GPU to use', default=0)
 parser.add_argument('--nLV', type=int, help='User specified nLV', default=4)
 parser.add_argument('--bs', type=int, help='Batch size', default=512)
@@ -20,6 +20,8 @@ args = parser.parse_args()
 # pass args to wand.config
 #wandb.config.update(args)
 #%%
+savefile_name = f"models/TotalDeltaETM_allgenes_ep{args.EPOCHS}_nlv{args.nLV}_bs{args.bs}_combineby{args.combine_method}_lr{args.lr}"
+print(savefile_name)
 DataDIR = os.path.join(os.path.expanduser('~'), "projects/data")
 adata_spliced = scvi.data.read_h5ad(os.path.join(DataDIR,'CRA001160/final_CRA001160_spliced_allgenes.h5ad'))
 adata_unspliced = scvi.data.read_h5ad(os.path.join(DataDIR,'CRA001160/final_CRA001160_unspliced_allgenes.h5ad'))
