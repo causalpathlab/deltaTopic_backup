@@ -2,12 +2,13 @@ import os
 import scvi
 from scipy.sparse import csr_matrix
 from scvi.data import setup_anndata
-import wandb
+
 import argparse
 from scipy.sparse import csr_matrix
 #%%
-#wandb.login()
-#wandb.init(entity="thisisyichen", project="TotalDeltaETM")
+import wandb
+wandb.login()
+wandb.init(entity="thisisyichen", project="TotalDeltaETM")
 # Input parser
 parser = argparse.ArgumentParser(description='Parameters for NN')
 parser.add_argument('--EPOCHS', type=int, help='EPOCHS', default=2000)
@@ -16,11 +17,12 @@ parser.add_argument('--use_gpu', type=int, help='which GPU to use', default=0)
 parser.add_argument('--nLV', type=int, help='User specified nLV', default=4)
 parser.add_argument('--bs', type=int, help='Batch size', default=512)
 parser.add_argument('--combine_method', type=str, help='Pathway type', default='add')
+parser.add_argument('--train_size', type=float, help='training size', default=1)
 args = parser.parse_args()
 # pass args to wand.config
-#wandb.config.update(args)
+wandb.config.update(args)
 #%%
-savefile_name = f"models/TotalDeltaETM_allgenes_ep{args.EPOCHS}_nlv{args.nLV}_bs{args.bs}_combineby{args.combine_method}_lr{args.lr}"
+savefile_name = f"models/TotalDeltaETM_allgenes_ep{args.EPOCHS}_nlv{args.nLV}_bs{args.bs}_combineby{args.combine_method}_lr{args.lr}_train_size{args.train_size}"
 print(savefile_name)
 DataDIR = os.path.join(os.path.expanduser('~'), "projects/data")
 adata_spliced = scvi.data.read_h5ad(os.path.join(DataDIR,'CRA001160/final_CRA001160_spliced_allgenes.h5ad'))
@@ -75,20 +77,19 @@ model = TotalDeltaETM(adata_spliced, n_latent = args.nLV, combine_latent= args.c
 #model = scCLR(adata_tumor_input, adata_metastatic_input, mask = torch.bernoulli(torch.empty(100, 16445).uniform_(0, 1)))
 #%%
 # this has to be passed, otherwise pytroch lighting logging won't be passed to wandb
-#from pytorch_lightning.loggers import WandbLogger
-#wandb_logger = WandbLogger(project = 'TotalDeltaETM')
-model_kwargs = {"lr": args.lr, 'use_gpu':args.use_gpu}
+from pytorch_lightning.loggers import WandbLogger
+wandb_logger = WandbLogger(project = 'TotalDeltaETM')
+model_kwargs = {"lr": args.lr, 'use_gpu':args.use_gpu, 'train_size':args.train_size}
 
 print(args)
 model.train(
     args.EPOCHS, 
-    check_val_every_n_epoch=5,
+    #check_val_every_n_epoch=5,
     batch_size=args.bs,
-#    logger = wandb_logger,
+    logger = wandb_logger,
     **model_kwargs,
     )
 #%%
-savefile_name = f"models/TotalDeltaETM_allgenes_ep{args.EPOCHS}_nlv{args.nLV}_bs{args.bs}_combineby{args.combine_method}_lr{args.lr}"
 model.save(savefile_name, overwrite=True, save_anndata=True)
 print(f"Model saved to {savefile_name}")
 ########
