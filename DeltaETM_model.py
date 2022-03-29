@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from anndata import AnnData, read
 from torch.utils.data import DataLoader
+from torch import nn as nn
 
 from scvi import _CONSTANTS
 from scvi.data import transfer_anndata_setup
@@ -844,6 +845,30 @@ class TotalDeltaETM(RNASeqMixin, VAEMixin, ArchesMixin, BaseModelClass):
         
         print(f'Deterministic: {deterministic}\nOutput_softmax_z: {output_softmax_z}')
         return latent_z
+    
+    @torch.no_grad()
+    def get_weights(
+        self,
+    ) -> List[np.ndarray]:
+        """
+        Return the latent space embedding for each dataset, i.e., spliced and unspliced
+
+        Parameters
+        ----------
+        adatas
+            List of adata_spliced and adata_unspliced.
+       
+        batch_size
+            Minibatch size for data loading into model.
+        """
+        self.module.eval()
+        log_sftm = nn.LogSoftmax(dim=-1)
+        log_delta = self.module.decoder.delta.detach()
+        log_rho = self.module.decoder.rho.detach()
+        
+        delta = torch.exp(log_sftm(log_delta))
+        rho = torch.exp(log_sftm(log_rho))
+        return delta.cpu().numpy(), rho.cpu().numpy(), log_delta.cpu().numpy(), log_rho.cpu().numpy()
     
     def save(
         self,
