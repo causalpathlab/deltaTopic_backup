@@ -17,13 +17,13 @@ target <- args$target
 fileDIR = paste0(Save_Path, "/")
 #"models/TotalDeltaETM_allgenes_ep2000_nlv16_bs512_combinebyadd_lr0.01_train_size1/"
 
-weights = fread(paste0(fileDIR, paste0(target,"_weights.csv")))
-weights = weights %>% as.data.frame()
+weights_dt = fread(paste0(fileDIR, paste0(target,"_weights.csv")))
+weights = weights_dt %>% as.data.frame()
 #pdf(file = paste0(fileDIR, paste0(target,"_weights.pdf")))
 weight_mat <- weights %>% as.data.frame()
 rownames(weight_mat) = weights$V1
 weight_mat = as.matrix(weight_mat[,-1])
-weight_mat %>%  gplots::heatmap.2()
+#weight_mat %>%  gplots::heatmap.2()
 #dev.off()
 
 
@@ -46,11 +46,26 @@ for(i in 1:ncol(weight_mat)){
 colnames(ordered_weights_matrix) = colnames(weight_mat)
 colnames(ordered_genes_matrix) = colnames(weight_mat)
 
+library(topicmodels)
+library(wordcloud)
+K = 20 # top K genes to plot
+
+#topic = 1
+for(topic in 1:ncol(ordered_weights_matrix)){
+    probabilities = ordered_weights_matrix[1:K,topic]
+    genes = ordered_genes_matrix[1:K,topic]
+
+    mycolors <- brewer.pal(8, "Dark2")
+    png(file = paste0(fileDIR, paste0("gene_cloud_top",K,"_",colnames(ordered_weights_matrix)[topic],".png")))
+    wordcloud(genes, probabilities, 
+        random.order = FALSE, color = mycolors,
+        main = colnames(ordered_weights_matrix)[topic])
+    dev.off()
+}
 
 
-
-data.table::fwrite(as.data.frame(ordered_genes_matrix), file = paste0(fileDIR, paste0(target,"_topK_genes.csv")))
-data.table::fwrite(as.data.frame(ordered_weights_matrix), file = paste0(fileDIR, paste0(target,"_topK_weights.csv")))
+#data.table::fwrite(as.data.frame(ordered_genes_matrix), file = paste0(fileDIR, paste0(target,"_topK_genes.csv")))
+#data.table::fwrite(as.data.frame(ordered_weights_matrix), file = paste0(fileDIR, paste0(target,"_topK_weights.csv")))
 
 
 K = 10 # top K genes and bottom K for each topic
