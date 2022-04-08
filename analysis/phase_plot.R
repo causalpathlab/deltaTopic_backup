@@ -6,14 +6,14 @@ library(argparse)
 library(magrittr)
 library(ggpubr)
 
-use_virtualenv('/home/BCCRC.CA/yzhang/DisNet',require = TRUE)
+use_virtualenv("/home/BCCRC.CA/yzhang/DisNet", require = TRUE)
 
-sc = import('scanpy')
-os = import('os')
-scipy = import('scipy')
+sc <- import("scanpy")
+os <- import("os")
+scipy <- import("scipy")
 parser <- ArgumentParser()
 
-parser$add_argument("--SavePath",  
+parser$add_argument("--SavePath",
     help = "relative path to save folder")
 
 
@@ -22,12 +22,12 @@ args <- parser$parse_args()
 #my_gene = 'NEAT1'
 #'MALAT1'                              
  
-SaveFolderPath = args$SavePath
+SaveFolderPath <- args$SavePath
 #SaveFolderPath = "models/TotalDeltaETM_allgenes_ep2000_nlv16_bs512_combinebyadd_lr0.01_train_size1"
-DataDIR = os$path$join(os$path$expanduser('~'), "projects/data")
+DataDIR <- os$path$join(os$path$expanduser('~'), "projects/data")
 
-adata_spliced = sc$read_h5ad(os$path$join(DataDIR,'CRA001160/final_CRA001160_spliced_allgenes.h5ad'))
-adata_unspliced = sc$read_h5ad(os$path$join(DataDIR,'CRA001160/final_CRA001160_unspliced_allgenes.h5ad'))
+adata_spliced <- sc$read_h5ad(os$path$join(DataDIR,'CRA001160/final_CRA001160_spliced_allgenes.h5ad'))
+adata_unspliced <- sc$read_h5ad(os$path$join(DataDIR,'CRA001160/final_CRA001160_unspliced_allgenes.h5ad'))
 
 sc$pp$normalize_per_cell(adata_spliced)
 sc$pp$normalize_per_cell(adata_unspliced)
@@ -52,7 +52,7 @@ my_gene_list_df = read.csv(paste0(SaveFolderPath, paste0("/","delta","_topK_gene
 
 K = 3
 my_gene_list = c()
-for(j in 1:ncol(my_gene_list_df)){
+for(j in seq_len(my_gene_list_df)){
     print(as.character(my_gene_list_df[1:K,j]))
     my_gene_list = c(my_gene_list, as.character(my_gene_list_df[1:K,j]))     
 }
@@ -80,4 +80,3 @@ for(my_gene in my_gene_list){
           ncol = 1, nrow = 2)
     ggsave(paste0(SaveFolderPath,'/',my_gene,'_scatter.png'))
 }
-
