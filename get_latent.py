@@ -8,18 +8,6 @@ import argparse
 from DeltaETM_model import TotalDeltaETM
 
 plot_gene_space = False
-'''
-parser = argparse.ArgumentParser(description='Parameters for NN')
-
-parser.add_argument('--EPOCHS', type=int, help='EPOCHS', default=2000)
-parser.add_argument('--lr', type=float, help='learning_rate', default=1e-2)
-parser.add_argument('--use_gpu', type=int, help='which GPU to use', default=0)
-parser.add_argument('--nLV', type=int, help='User specified nLV', default=16)
-parser.add_argument('--bs', type=int, help='Batch size', default=512)
-parser.add_argument('--combine_method', type=str, help='Pathway type', default='add')
-parser.add_argument('--train_size', type=float, help='training size', default=1)
-
-args = parser.parse_args()'''
 parser = argparse.ArgumentParser(description='Parameters for NN')
 
 parser.add_argument('--SavePath', type=str, help='path to save')
