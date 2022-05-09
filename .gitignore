@@ -12,6 +12,8 @@ models/TotalDeltaETM_allgenes_ep2000_nlv4_bs512_combinebyconcat
 models/TotalDeltaETM_allgenes_ep2000_nlv4_bs512_combinebyadd
 models/TotalDeltaETM_allgenes_ep500_nlv4_bs256_combinebyconcat
 models/DeltaETM_allgenes_ep500_nlv4_bs256
+Train_DeltaETM_PDAC.py
+Train_scvi.py
 *.png
 *.h5ad
 *.pdf
