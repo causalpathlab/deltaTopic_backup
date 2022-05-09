@@ -24,9 +24,6 @@ Rscript data/CRA001160/process_data_final_QC_allgenes.R
 ```python
 # train deltaTopic model on the whole dataset
 python Train_TotalDeltaETM_PDAC.py --nLV 32 --train_size 1 --EPOCHS 2000 --lr 0.001
-
-# train scvi (only for comparison)
-python Train_scvi.py- -nLV 32 --train_size 1 --EPOCHS 2000 --lr 0.001
 ```
 
 ### Analysis
